@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK - Actualizado a la versión más reciente compatible -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -198,12 +198,22 @@
         <div class="container">
             <div class="footer-content">
                 <p>&copy; 2025 FriendFlixDB</p>
-                <p class="version">v1.4.2</p>
+                <p class="version">v1.4.4</p>
             </div>
         </div>
     </footer>
 
+    <!-- Agregar pequeño script de diagnóstico -->
+    <script>
+        console.log("HTML cargado correctamente");
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM completamente cargado");
+        });
+    </script>
+    
+    <!-- Primero cargar la configuración de Firebase -->
     <script type="module" src="firebase-config.js"></script>
+    <!-- Luego cargar el script principal -->
     <script type="module" src="script.js"></script>
 </body>
 </html>

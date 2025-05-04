@@ -31,11 +31,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // Variable para almacenar la última consulta de Firestore
     let firestoreUnsubscribe = null;
 
+    // Verificar conexión a Firebase - Debug
+    console.log("Iniciando aplicación...");
+    console.log("Estado de Firebase:", db ? "Inicializado" : "No inicializado");
+
     // Comprobar si el usuario ya está en modo admin
     checkAdminStatus();
 
-    // Cargar películas desde Firestore con optimizaciones
-    loadMoviesFromFirestore();
+    // Cargar películas desde Firestore con manejo de errores mejorado
+    window.setTimeout(() => {
+        loadMoviesFromFirestore();
+    }, 500); // Pequeño retraso para asegurar que Firebase esté listo
 
     // Event listeners
     addBtn.addEventListener('click', () => {
@@ -149,72 +155,112 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Intentar primero una consulta básica sin ordenación para verificar acceso
+            console.log("Intentando cargar datos desde Firestore...");
+
+            // Obtener datos de forma más simple para diagnóstico
             try {
-                const testQuery = await moviesCollection.limit(1).get();
-                if (testQuery.empty) {
-                    console.log("Conexión exitosa pero no hay datos en la colección");
+                const snapshot = await moviesCollection.get();
+                console.log("Consulta realizada, resultados:", snapshot.size);
+                
+                allMovies = [];
+                
+                if (snapshot.empty) {
+                    console.log("No hay documentos en la colección");
+                    displayMovies([]);
+                    return;
                 }
-            } catch (connectionError) {
-                console.error("Error de conexión con Firestore:", connectionError);
-                displayError('Error de conexión a la base de datos. Verifica tu conexión a internet.');
-                return;
+
+                snapshot.forEach((doc) => {
+                    if (doc.exists) {
+                        const movieData = doc.data();
+                        const movie = {
+                            id: doc.id,
+                            ...movieData
+                        };
+                        allMovies.push(movie);
+                    }
+                });
+                
+                console.log(`Películas cargadas: ${allMovies.length}`);
+                
+                // Mostrar los datos
+                displayMovies(allMovies);
+                
+                // Ahora configurar el listener en tiempo real
+                setupRealtimeListener();
+                
+            } catch (error) {
+                console.error("Error obteniendo datos iniciales:", error);
+                displayError(`Error al obtener datos: ${error.message}`);
+            }
+        } catch (error) {
+            console.error('Error general:', error);
+            displayError('Error al cargar los datos. Intenta más tarde.');
+        }
+    }
+    
+    // Configura el listener en tiempo real después de la carga inicial
+    function setupRealtimeListener() {
+        try {
+            // Cancelar suscripción anterior si existe
+            if (firestoreUnsubscribe) {
+                firestoreUnsubscribe();
             }
             
-            // Escuchar cambios en tiempo real con manejo de errores mejorado
             firestoreUnsubscribe = moviesCollection
-                .limit(100) // Limitar a 100 documentos para reducir lecturas
                 .onSnapshot(
                     (snapshot) => {
                         try {
-                            allMovies = [];
-                            if (snapshot.empty) {
-                                console.log("No hay documentos en la colección");
-                                displayMovies([]);
-                                return;
-                            }
-
-                            snapshot.forEach((doc) => {
-                                if (doc.exists) {
-                                    const movieData = doc.data();
-                                    const movie = {
-                                        id: doc.id,
-                                        ...movieData
-                                    };
-                                    allMovies.push(movie);
+                            // Solo procesar cambios, no toda la colección
+                            let hasChanges = false;
+                            
+                            snapshot.docChanges().forEach((change) => {
+                                hasChanges = true;
+                                const doc = change.doc;
+                                const movieData = doc.data();
+                                const movie = {
+                                    id: doc.id,
+                                    ...movieData
+                                };
+                                
+                                if (change.type === "added") {
+                                    // Verificar si ya está en la lista (para evitar duplicados)
+                                    const existingIndex = allMovies.findIndex(m => m.id === movie.id);
+                                    if (existingIndex === -1) {
+                                        allMovies.push(movie);
+                                    }
+                                } else if (change.type === "modified") {
+                                    // Actualizar película existente
+                                    const index = allMovies.findIndex(m => m.id === movie.id);
+                                    if (index !== -1) {
+                                        allMovies[index] = movie;
+                                    }
+                                } else if (change.type === "removed") {
+                                    // Eliminar película
+                                    const index = allMovies.findIndex(m => m.id === movie.id);
+                                    if (index !== -1) {
+                                        allMovies.splice(index, 1);
+                                    }
                                 }
                             });
                             
-                            // Ordenar los datos localmente si hay resultados
-                            displayMovies(allMovies);
+                            // Solo actualizar la interfaz si hubo cambios
+                            if (hasChanges) {
+                                console.log("Cambios detectados, actualizando UI");
+                                displayMovies(allMovies);
+                            }
                         } catch (parseError) {
-                            console.error("Error procesando datos:", parseError);
-                            displayError('Error al procesar los datos. Intenta recargar la página.');
+                            console.error("Error procesando cambios:", parseError);
                         }
                     }, 
                     (error) => {
-                        console.error("Error obteniendo datos: ", error);
-                        let errorMessage = 'Error al cargar los datos. ';
-                        
-                        // Mensajes más específicos según el tipo de error
-                        if (error.code === 'permission-denied') {
-                            errorMessage += 'No tienes permiso para acceder a estos datos.';
-                        } else if (error.code === 'unavailable') {
-                            errorMessage += 'Servidor no disponible. Verifica tu conexión a internet.';
-                        } else if (error.code === 'resource-exhausted') {
-                            errorMessage += 'Se ha excedido la cuota de la base de datos.';
-                        } else {
-                            errorMessage += 'Intenta más tarde.';
-                        }
-                        
-                        displayError(errorMessage);
-                    },
-                    // Opciones para reducir costos
-                    { includeMetadataChanges: false }
+                        console.error("Error en listener en tiempo real:", error);
+                    }
                 );
+                
+            console.log("Listener en tiempo real configurado");
         } catch (error) {
-            console.error('Error obteniendo datos: ', error);
-            displayError('Error al cargar los datos. Intenta más tarde.');
+            console.error("Error configurando listener en tiempo real:", error);
         }
     }
 
