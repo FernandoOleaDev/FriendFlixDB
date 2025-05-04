@@ -141,32 +141,73 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Mostrar mensaje de carga
             moviesList.innerHTML = '<tr><td colspan="10" class="loading-message">Cargando datos...</td></tr>';
-
-            // Optimizaciones para Firestore:
-            // 1. Limitar el número de documentos (si hay muchos)
-            // 2. Crear índices para los campos de ordenación
-            // 3. Usar caché y agregados para reducir lecturas
             
-            // Escuchar cambios en tiempo real con optimizaciones
+            // Verificar que Firestore está inicializado
+            if (!db || !moviesCollection) {
+                console.error("Firebase no está inicializado correctamente");
+                displayError('Error de conexión a la base de datos. Recarga la página e intenta nuevamente.');
+                return;
+            }
+
+            // Intentar primero una consulta básica sin ordenación para verificar acceso
+            try {
+                const testQuery = await moviesCollection.limit(1).get();
+                if (testQuery.empty) {
+                    console.log("Conexión exitosa pero no hay datos en la colección");
+                }
+            } catch (connectionError) {
+                console.error("Error de conexión con Firestore:", connectionError);
+                displayError('Error de conexión a la base de datos. Verifica tu conexión a internet.');
+                return;
+            }
+            
+            // Escuchar cambios en tiempo real con manejo de errores mejorado
             firestoreUnsubscribe = moviesCollection
-                .orderBy('Fecha de Petición', 'desc') // Ordenar por fecha (requiere índice)
                 .limit(100) // Limitar a 100 documentos para reducir lecturas
                 .onSnapshot(
                     (snapshot) => {
-                        allMovies = [];
-                        snapshot.forEach((doc) => {
-                            const movie = {
-                                id: doc.id,
-                                ...doc.data()
-                            };
-                            allMovies.push(movie);
-                        });
-                        
-                        displayMovies(allMovies);
+                        try {
+                            allMovies = [];
+                            if (snapshot.empty) {
+                                console.log("No hay documentos en la colección");
+                                displayMovies([]);
+                                return;
+                            }
+
+                            snapshot.forEach((doc) => {
+                                if (doc.exists) {
+                                    const movieData = doc.data();
+                                    const movie = {
+                                        id: doc.id,
+                                        ...movieData
+                                    };
+                                    allMovies.push(movie);
+                                }
+                            });
+                            
+                            // Ordenar los datos localmente si hay resultados
+                            displayMovies(allMovies);
+                        } catch (parseError) {
+                            console.error("Error procesando datos:", parseError);
+                            displayError('Error al procesar los datos. Intenta recargar la página.');
+                        }
                     }, 
                     (error) => {
                         console.error("Error obteniendo datos: ", error);
-                        displayError('Error al cargar los datos. Intenta más tarde.');
+                        let errorMessage = 'Error al cargar los datos. ';
+                        
+                        // Mensajes más específicos según el tipo de error
+                        if (error.code === 'permission-denied') {
+                            errorMessage += 'No tienes permiso para acceder a estos datos.';
+                        } else if (error.code === 'unavailable') {
+                            errorMessage += 'Servidor no disponible. Verifica tu conexión a internet.';
+                        } else if (error.code === 'resource-exhausted') {
+                            errorMessage += 'Se ha excedido la cuota de la base de datos.';
+                        } else {
+                            errorMessage += 'Intenta más tarde.';
+                        }
+                        
+                        displayError(errorMessage);
                     },
                     // Opciones para reducir costos
                     { includeMetadataChanges: false }
