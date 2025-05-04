@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Contraseña de admin (debería almacenarse de manera más segura)
     const ADMIN_PASSWORD = "friendflix123";
+    // Contraseña para clientes/usuarios regulares
+    const CLIENT_PASSWORD = "amigo2025";
     
     // Track the current movie being edited
     let currentMovieId = null;
@@ -28,6 +30,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let allMovies = [];
     // Variable para rastrear estado de admin
     let isAdmin = false;
+    // Variable para rastrear si el usuario ha ingresado como cliente
+    let isClientAuthenticated = false;
     // Variable para almacenar la última consulta de Firestore
     let firestoreUnsubscribe = null;
 
@@ -35,13 +39,18 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log("Iniciando aplicación...");
     console.log("Estado de Firebase:", db ? "Inicializado" : "No inicializado");
 
-    // Comprobar si el usuario ya está en modo admin
-    checkAdminStatus();
+    // Comprobar si el usuario ya está en modo admin o autenticado como cliente
+    checkUserStatus();
 
-    // Cargar películas desde Firestore con manejo de errores mejorado
-    window.setTimeout(() => {
-        loadMoviesFromFirestore();
-    }, 500); // Pequeño retraso para asegurar que Firebase esté listo
+    // Si el usuario no está autenticado como cliente ni como admin, mostrar prompt de contraseña
+    if (!isClientAuthenticated && !isAdmin) {
+        showClientAuthPrompt();
+    } else {
+        // Cargar películas desde Firestore con manejo de errores mejorado
+        window.setTimeout(() => {
+            loadMoviesFromFirestore();
+        }, 500); // Pequeño retraso para asegurar que Firebase esté listo
+    }
 
     // Event listeners
     addBtn.addEventListener('click', () => {
@@ -130,11 +139,45 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function checkAdminStatus() {
+    function checkUserStatus() {
         isAdmin = localStorage.getItem('isAdmin') === 'true';
+        isClientAuthenticated = sessionStorage.getItem('isClientAuthenticated') === 'true';
+        
         if (isAdmin) {
             adminBtn.classList.add('admin-active');
         }
+    }
+
+    function showClientAuthPrompt() {
+        // Mostrar el modal de autenticación de cliente
+        const clientAuthModal = document.getElementById('client-auth-modal');
+        clientAuthModal.style.display = 'block';
+        document.body.classList.add('modal-open');
+        
+        // Configurar el formulario de autenticación
+        const clientAuthForm = document.getElementById('client-auth-form');
+        
+        clientAuthForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const password = document.getElementById('client-password').value;
+            
+            if (password === CLIENT_PASSWORD) {
+                // Guardar estado de cliente autenticado en sessionStorage (dura la sesión)
+                sessionStorage.setItem('isClientAuthenticated', 'true');
+                isClientAuthenticated = true;
+                
+                // Cerrar el modal
+                clientAuthModal.style.display = 'none';
+                document.body.classList.remove('modal-open');
+                
+                alert('¡Bienvenido a FriendFlixDB!');
+                
+                // Cargar películas desde Firestore
+                loadMoviesFromFirestore();
+            } else {
+                alert('Contraseña incorrecta. Por favor, inténtalo de nuevo.');
+            }
+        });
     }
 
     // Función para obtener todas las películas de Firestore

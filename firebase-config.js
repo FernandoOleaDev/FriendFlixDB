@@ -1,4 +1,5 @@
 // Configuración de Firebase
+// Las credenciales están protegidas mediante las reglas de seguridad de Firestore
 const firebaseConfig = {
     apiKey: "AIzaSyCmBNiCZiSX6voEk6wkT4D5jcukniUUVHo",
     authDomain: "friendflixdb.firebaseapp.com",
