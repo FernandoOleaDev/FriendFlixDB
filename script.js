@@ -21,22 +21,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners
     addBtn.addEventListener('click', () => {
         addModal.style.display = 'block';
+        document.body.classList.add('modal-open'); // Añadir clase para bloquear scroll
     });
 
     closeBtn.addEventListener('click', () => {
         addModal.style.display = 'none';
+        document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
     });
 
     editCloseBtn.addEventListener('click', () => {
         editModal.style.display = 'none';
+        document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
     });
 
     window.addEventListener('click', (e) => {
         if (e.target === addModal) {
             addModal.style.display = 'none';
+            document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
         }
         if (e.target === editModal) {
             editModal.style.display = 'none';
+            document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
         }
     });
 
@@ -177,6 +182,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Show the edit modal
         editModal.style.display = 'block';
+        document.body.classList.add('modal-open'); // Añadir clase para bloquear scroll
     }
 
     function getMoviesFromTable() {
@@ -226,6 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             await updateMovieInCSV(updatedMovie, currentEditRow);
             editModal.style.display = 'none';
+            document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
             editForm.reset();
             currentEditRow = null;
             fetchMoviesData(); // Refresh the list
@@ -248,7 +255,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Función para obtener la fecha actual en formato legible
+    // Función para obtener la fecha currentDate en formato legible
     function getCurrentDate() {
         const now = new Date();
         const day = String(now.getDate()).padStart(2, '0');
@@ -278,6 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             await addMovieToCSV(newMovie);
             addModal.style.display = 'none';
+            document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
             addForm.reset();
             fetchMoviesData(); // Refresh the list
         } catch (error) {
