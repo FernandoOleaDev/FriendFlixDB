@@ -1,3 +1,6 @@
+// Importar configuración de Firebase
+import { db, moviesCollection } from './firebase-config.js';
+
 document.addEventListener('DOMContentLoaded', function() {
     // Elements
     const addBtn = document.getElementById('add-btn');
@@ -16,19 +19,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const adminForm = document.getElementById('admin-form');
     const adminCloseBtn = document.querySelector('#admin-modal .close');
     
-    // Contraseña de admin (debería ser más segura en un entorno real)
+    // Contraseña de admin (debería almacenarse de manera más segura)
     const ADMIN_PASSWORD = "friendflix123";
     
-    // Track the current row being edited
-    let currentEditRow = null;
-    // Variable para almacenar todas las películas
+    // Track the current movie being edited
+    let currentMovieId = null;
+    // Variable para almacenar las películas
     let allMovies = [];
+    // Variable para rastrear estado de admin
+    let isAdmin = false;
+    // Variable para almacenar la última consulta de Firestore
+    let firestoreUnsubscribe = null;
 
     // Comprobar si el usuario ya está en modo admin
     checkAdminStatus();
 
-    // Load movies data from CSV
-    fetchMoviesData();
+    // Cargar películas desde Firestore con optimizaciones
+    loadMoviesFromFirestore();
 
     // Event listeners
     addBtn.addEventListener('click', () => {
@@ -103,89 +110,71 @@ document.addEventListener('DOMContentLoaded', function() {
         if (password === ADMIN_PASSWORD) {
             // Guardar estado de admin en localStorage
             localStorage.setItem('isAdmin', 'true');
+            isAdmin = true;
             // Actualizar UI
             adminBtn.classList.add('admin-active');
             adminModal.style.display = 'none';
             document.body.classList.remove('modal-open');
             
-            // Mostrar notificación si hay cambios pendientes
-            const pendingMovies = JSON.parse(localStorage.getItem('pendingMovies') || '[]');
-            if (pendingMovies.length > 0) {
-                createPendingChangesNotification(pendingMovies.length);
-            }
-            
             alert('¡Modo administrador activado!');
+            // Actualizar la vista para mostrar controles de admin
+            displayMovies(allMovies);
         } else {
             alert('Contraseña incorrecta');
         }
     }
 
     function checkAdminStatus() {
-        const isAdmin = localStorage.getItem('isAdmin') === 'true';
+        isAdmin = localStorage.getItem('isAdmin') === 'true';
         if (isAdmin) {
             adminBtn.classList.add('admin-active');
         }
     }
 
-    // Functions
-    async function fetchMoviesData() {
+    // Función para obtener todas las películas de Firestore
+    async function loadMoviesFromFirestore() {
         try {
-            // Primero intentar cargar desde localStorage
-            const storedMovies = localStorage.getItem('pendingMovies');
-            const localMovies = storedMovies ? JSON.parse(storedMovies) : [];
-            
-            // Luego cargar desde CSV
-            const response = await fetch('movies.csv');
-            const csvText = await response.text();
-            const csvMovies = parseCSV(csvText);
-            
-            // Combinar ambas fuentes, dando prioridad a las pendientes
-            allMovies = [...csvMovies];
-            
-            // Añadir películas pendientes o actualizadas
-            localMovies.forEach(pendingMovie => {
-                if (pendingMovie.action === 'add') {
-                    allMovies.push(pendingMovie.data);
-                } else if (pendingMovie.action === 'update') {
-                    // Buscar por título y fecha de petición (identificadores únicos)
-                    const index = allMovies.findIndex(m => 
-                        m.Título === pendingMovie.originalData.Título && 
-                        m['Fecha de Petición'] === pendingMovie.originalData['Fecha de Petición']);
-                    
-                    if (index !== -1) {
-                        allMovies[index] = pendingMovie.data;
-                    }
-                }
-            });
-            
-            displayMovies(allMovies);
-            
-            // Mostrar notificación SOLO para el administrador si hay cambios pendientes
-            // Comprobamos si el usuario actual es administrador mediante localStorage
-            const isAdmin = localStorage.getItem('isAdmin') === 'true';
-            if (isAdmin && localMovies.length > 0) {
-                createPendingChangesNotification(localMovies.length);
+            // Cancelar cualquier suscripción previa
+            if (firestoreUnsubscribe) {
+                firestoreUnsubscribe();
             }
-        } catch (error) {
-            console.error('Error fetching movies data:', error);
-            displayError('No se pudo cargar la lista. Intenta más tarde.');
-        }
-    }
 
-    function parseCSV(text) {
-        const lines = text.split('\n');
-        const headers = lines[0].split('\t');
-        
-        return lines.slice(1).filter(line => line.trim() !== '').map(line => {
-            const values = line.split('\t');
-            const movie = {};
+            // Mostrar mensaje de carga
+            moviesList.innerHTML = '<tr><td colspan="10" class="loading-message">Cargando datos...</td></tr>';
+
+            // Optimizaciones para Firestore:
+            // 1. Limitar el número de documentos (si hay muchos)
+            // 2. Crear índices para los campos de ordenación
+            // 3. Usar caché y agregados para reducir lecturas
             
-            headers.forEach((header, index) => {
-                movie[header.trim()] = values[index] ? values[index].trim() : '';
-            });
-            
-            return movie;
-        });
+            // Escuchar cambios en tiempo real con optimizaciones
+            firestoreUnsubscribe = moviesCollection
+                .orderBy('Fecha de Petición', 'desc') // Ordenar por fecha (requiere índice)
+                .limit(100) // Limitar a 100 documentos para reducir lecturas
+                .onSnapshot(
+                    (snapshot) => {
+                        allMovies = [];
+                        snapshot.forEach((doc) => {
+                            const movie = {
+                                id: doc.id,
+                                ...doc.data()
+                            };
+                            allMovies.push(movie);
+                        });
+                        
+                        displayMovies(allMovies);
+                    }, 
+                    (error) => {
+                        console.error("Error obteniendo datos: ", error);
+                        displayError('Error al cargar los datos. Intenta más tarde.');
+                    },
+                    // Opciones para reducir costos
+                    { includeMetadataChanges: false }
+                );
+        } catch (error) {
+            console.error('Error obteniendo datos: ', error);
+            displayError('Error al cargar los datos. Intenta más tarde.');
+        }
     }
 
     // Función para convertir una fecha en formato DD/MM/YYYY a un objeto Date para comparar
@@ -216,9 +205,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return dateB - dateA; // Orden descendente (más reciente primero)
         });
         
-        sortedMovies.forEach((movie, index) => {
+        sortedMovies.forEach((movie) => {
             const row = document.createElement('tr');
-            row.dataset.index = index;
+            row.dataset.id = movie.id;
             
             row.innerHTML = `
                 <td>${movie.Título || ''}</td>
@@ -231,9 +220,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${movie.Temporadas || ''}</td>
                 <td>${movie['Año de Lanzamiento'] || ''}</td>
                 <td>
-                    <button class="edit-btn" data-index="${index}">
+                    <button class="edit-btn" data-id="${movie.id}">
                         <i class="fas fa-edit"></i>
                     </button>
+                    ${isAdmin ? `<button class="delete-btn" data-id="${movie.id}">
+                        <i class="fas fa-trash"></i>
+                    </button>` : ''}
                 </td>
             `;
             
@@ -244,13 +236,20 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.edit-btn').forEach(button => {
             button.addEventListener('click', handleEditClick);
         });
+        
+        // Add delete button event listeners (only for admin)
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.addEventListener('click', handleDeleteClick);
+        });
     }
 
     function handleEditClick(e) {
-        const index = e.currentTarget.dataset.index;
-        const movies = getMoviesFromTable();
-        const movie = movies[index];
-        currentEditRow = index;
+        const movieId = e.currentTarget.dataset.id;
+        const movie = allMovies.find(m => m.id === movieId);
+        
+        if (!movie) return;
+        
+        currentMovieId = movieId;
         
         // Fill the edit form with the movie data
         document.getElementById('edit-title').value = movie.Título || '';
@@ -274,40 +273,40 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Show the edit modal
         editModal.style.display = 'block';
-        document.body.classList.add('modal-open'); // Añadir clase para bloquear scroll
+        document.body.classList.add('modal-open');
     }
-
-    function getMoviesFromTable() {
-        const rows = moviesList.querySelectorAll('tr');
-        const movies = [];
+    
+    // Función para manejar el clic en el botón de eliminar
+    function handleDeleteClick(e) {
+        if (!isAdmin) {
+            alert('Necesitas ser administrador para eliminar contenido.');
+            return;
+        }
         
-        rows.forEach(row => {
-            if (!row.querySelector('.empty-message')) {
-                const cells = row.querySelectorAll('td');
-                if (cells.length >= 9) {
-                    const movie = {
-                        'Título': cells[0].textContent,
-                        'Subiendo al Servidor': cells[1].textContent,
-                        'En Servidor': cells[2].textContent,
-                        'Petición de': cells[3].textContent,
-                        'Fecha de Petición': cells[4].textContent,
-                        'Comentarios': cells[5].textContent,
-                        'Es Serie': cells[6].textContent,
-                        'Temporadas': cells[7].textContent,
-                        'Año de Lanzamiento': cells[8].textContent
-                    };
-                    movies.push(movie);
-                }
-            }
-        });
+        const movieId = e.currentTarget.dataset.id;
+        const movie = allMovies.find(m => m.id === movieId);
         
-        return movies;
+        if (confirm(`¿Estás seguro de que quieres eliminar "${movie.Título}"?`)) {
+            deleteMovie(movieId);
+        }
+    }
+    
+    // Función para eliminar una película de Firestore
+    async function deleteMovie(movieId) {
+        try {
+            await moviesCollection.doc(movieId).delete();
+            // La UI se actualizará automáticamente gracias al listener onSnapshot
+            alert('Contenido eliminado correctamente.');
+        } catch (error) {
+            console.error('Error al eliminar el contenido:', error);
+            alert('Error al eliminar el contenido. Inténtalo de nuevo.');
+        }
     }
 
     async function handleEditFormSubmit(e) {
         e.preventDefault();
         
-        if (currentEditRow === null) return;
+        if (!currentMovieId) return;
         
         const updatedMovie = {
             'Título': document.getElementById('edit-title').value,
@@ -318,36 +317,43 @@ document.addEventListener('DOMContentLoaded', function() {
             'Comentarios': document.getElementById('edit-comments').value,
             'Es Serie': document.getElementById('edit-is-series').value,
             'Temporadas': document.getElementById('edit-is-series').value === 'Sí' ? document.getElementById('edit-seasons').value : '',
-            'Año de Lanzamiento': document.getElementById('edit-release-year').value
+            'Año de Lanzamiento': document.getElementById('edit-release-year').value,
+            'Última Actualización': getCurrentDate(),
+            'Actualizado Por': isAdmin ? 'Admin' : 'Usuario'
         };
         
         try {
-            await updateMovieInCSV(updatedMovie, currentEditRow);
+            await updateMovieInFirestore(currentMovieId, updatedMovie);
             editModal.style.display = 'none';
-            document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
+            document.body.classList.remove('modal-open');
             editForm.reset();
-            currentEditRow = null;
-            fetchMoviesData(); // Refresh the list
+            currentMovieId = null;
+            // La UI se actualizará automáticamente gracias al listener onSnapshot
         } catch (error) {
             console.error('Error updating movie:', error);
             alert('Error al actualizar el contenido. Inténtalo de nuevo.');
         }
     }
 
+    // Función para filtrar películas de manera eficiente
     function filterMovies() {
         const searchTerm = searchInput.value.toLowerCase();
-        const rows = moviesList.querySelectorAll('tr');
         
-        rows.forEach(row => {
-            const titleCell = row.querySelector('td:first-child');
-            if (titleCell) {
-                const title = titleCell.textContent.toLowerCase();
-                row.style.display = title.includes(searchTerm) ? '' : 'none';
-            }
-        });
+        if (searchTerm === '') {
+            // Si no hay término de búsqueda, recargar desde Firestore para obtener datos frescos
+            // pero con un límite para ahorrar operaciones
+            loadMoviesFromFirestore();
+        } else {
+            // Filtrar localmente para ahorrar operaciones de Firestore
+            const filteredMovies = allMovies.filter(movie => 
+                (movie.Título?.toLowerCase().includes(searchTerm)) ||
+                (movie['Petición de']?.toLowerCase().includes(searchTerm))
+            );
+            displayMovies(filteredMovies);
+        }
     }
 
-    // Función para obtener la fecha currentDate en formato legible
+    // Función para obtener la fecha actual en formato legible
     function getCurrentDate() {
         const now = new Date();
         const day = String(now.getDate()).padStart(2, '0');
@@ -359,7 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function handleFormSubmit(e) {
         e.preventDefault();
         
-        // Agregar la fecha currentDate automaticamente
+        // Agregar la fecha actual automáticamente
         const currentDate = getCurrentDate();
         
         const newMovie = {
@@ -371,151 +377,144 @@ document.addEventListener('DOMContentLoaded', function() {
             'Comentarios': document.getElementById('comments').value,
             'Es Serie': document.getElementById('is-series').value,
             'Temporadas': document.getElementById('is-series').value === 'Sí' ? document.getElementById('seasons').value : '',
-            'Año de Lanzamiento': document.getElementById('release-year').value
+            'Año de Lanzamiento': document.getElementById('release-year').value,
+            'Fecha de Creación': currentDate,
+            'Creado Por': isAdmin ? 'Admin' : 'Usuario'
         };
         
         try {
-            await addMovieToCSV(newMovie);
+            // Asegurarse de que los campos son válidos para evitar escrituras innecesarias
+            const validatedMovie = Object.entries(newMovie).reduce((acc, [key, value]) => {
+                // Eliminar propiedades vacías o nulas para ahorrar espacio y operaciones
+                if (value !== null && value !== undefined && value !== '') {
+                    acc[key] = value;
+                }
+                return acc;
+            }, {});
+            
+            await moviesCollection.add(validatedMovie);
             addModal.style.display = 'none';
             document.body.classList.remove('modal-open');
             addForm.reset();
-            fetchMoviesData(); // Refresh the list
+            // La UI se actualizará automáticamente gracias al listener onSnapshot
         } catch (error) {
             console.error('Error adding movie:', error);
             alert('Error al añadir el contenido. Inténtalo de nuevo.');
         }
     }
 
-    async function addMovieToCSV(movie) {
+    // Función para actualizar una película en Firestore de manera eficiente
+    async function updateMovieInFirestore(movieId, movie) {
         try {
-            // Obtener películas pendientes del localStorage
-            const pendingMovies = JSON.parse(localStorage.getItem('pendingMovies') || '[]');
+            // Sólo actualizar los campos que realmente cambiaron
+            const movieRef = moviesCollection.doc(movieId);
+            const doc = await movieRef.get();
+            const currentData = doc.data();
             
-            // Añadir la nueva película a la lista de pendientes
-            pendingMovies.push({
-                action: 'add',
-                data: movie,
-                timestamp: Date.now()
-            });
+            // Identificar solo los campos que cambiaron
+            const updates = {};
+            for (const [key, value] of Object.entries(movie)) {
+                if (currentData[key] !== value && value !== null && value !== undefined) {
+                    updates[key] = value;
+                }
+            }
             
-            // Guardar en localStorage
-            localStorage.setItem('pendingMovies', JSON.stringify(pendingMovies));
+            // Añadir campos de auditoría
+            updates['Última Actualización'] = getCurrentDate();
+            updates['Actualizado Por'] = isAdmin ? 'Admin' : 'Usuario';
             
-            // Mostrar mensaje de éxito simplificado (para usuarios normales)
-            alert('Contenido añadido correctamente. ¡Gracias por tu petición!');
-            
-            return Promise.resolve();
+            // Solo actualizar si hay cambios
+            if (Object.keys(updates).length > 0) {
+                await movieRef.update(updates);
+                alert('Contenido actualizado correctamente.');
+            } else {
+                alert('No se detectaron cambios.');
+            }
         } catch (error) {
-            console.error('Error in addMovieToCSV:', error);
-            return Promise.reject(error);
-        }
-    }
-
-    // Función para crear notificación de cambios pendientes (solo para admin)
-    function createPendingChangesNotification(count) {
-        // Eliminar notificación existente si hay
-        const existingNotification = document.querySelector('.pending-notification');
-        if (existingNotification) {
-            existingNotification.remove();
-        }
-        
-        // Crear nueva notificación
-        const notification = document.createElement('div');
-        notification.className = 'pending-notification';
-        notification.innerHTML = `
-            <p>Tienes ${count} cambios pendientes de subir al repositorio</p>
-            <button id="submit-changes-btn">Exportar cambios</button>
-            <button id="clear-changes-btn">Descartar cambios</button>
-        `;
-        
-        // Insertar después del header
-        const header = document.querySelector('header');
-        header.parentNode.insertBefore(notification, header.nextSibling);
-        
-        // Añadir eventos a los botones
-        document.getElementById('submit-changes-btn').addEventListener('click', exportChanges);
-        document.getElementById('clear-changes-btn').addEventListener('click', clearPendingChanges);
-    }
-
-    // Función para exportar los cambios (para el administrador)
-    function exportChanges() {
-        const pendingMovies = JSON.parse(localStorage.getItem('pendingMovies') || '[]');
-        
-        if (pendingMovies.length === 0) {
-            alert('No hay cambios pendientes para exportar.');
-            return;
-        }
-        
-        // Crear un archivo JSON para descargar
-        const dataStr = JSON.stringify(pendingMovies, null, 2);
-        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-        
-        const exportFileDefaultName = `cambios_pendientes_${new Date().toISOString().slice(0,10)}.json`;
-        
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', exportFileDefaultName);
-        linkElement.click();
-        
-        // Mostrar instrucciones
-        const instructions = `
-El archivo ${exportFileDefaultName} se ha descargado con éxito.
-
-Para procesar estos cambios en el repositorio:
-
-1. Crea un nuevo archivo llamado 'update-movies.js' en la raíz del repositorio.
-2. Abre una terminal en la ubicación del repositorio.
-3. Ejecuta: node update-csv.js ${exportFileDefaultName}
-4. Verifica que el archivo movies.csv se haya actualizado.
-5. Realiza un commit y un push con los cambios.
-        `;
-        
-        alert(instructions);
-        
-        if (confirm('¿Quieres eliminar los cambios pendientes después de exportarlos?')) {
-            localStorage.removeItem('pendingMovies');
-            location.reload(); // Recargar la página para actualizar la vista
-        }
-    }
-
-    // Función para descartar los cambios pendientes
-    function clearPendingChanges() {
-        if (confirm('¿Estás seguro de que quieres descartar todos los cambios pendientes? Esta acción no se puede deshacer.')) {
-            localStorage.removeItem('pendingMovies');
-            location.reload(); // Recargar la página para actualizar la vista
-        }
-    }
-
-    async function updateMovieInCSV(movie, index) {
-        try {
-            // Obtener la película original
-            const originalMovie = allMovies[index];
-            
-            // Obtener películas pendientes del localStorage
-            const pendingMovies = JSON.parse(localStorage.getItem('pendingMovies') || '[]');
-            
-            // Añadir la actualización a la lista de pendientes
-            pendingMovies.push({
-                action: 'update',
-                data: movie,
-                originalData: originalMovie,
-                timestamp: Date.now()
-            });
-            
-            // Guardar en localStorage
-            localStorage.setItem('pendingMovies', JSON.stringify(pendingMovies));
-            
-            // Mostrar mensaje de éxito simplificado (para usuarios normales)
-            alert('Contenido actualizado correctamente. ¡Gracias por tu contribución!');
-            
-            return Promise.resolve();
-        } catch (error) {
-            console.error('Error in updateMovieInCSV:', error);
+            console.error('Error in updateMovieInFirestore:', error);
             return Promise.reject(error);
         }
     }
 
     function displayError(message) {
-        moviesList.innerHTML = `<tr><td colspan="9" class="error-message">${message}</td></tr>`;
+        moviesList.innerHTML = `<tr><td colspan="10" class="error-message">${message}</td></tr>`;
     }
+    
+    // Función para migrar datos del CSV a Firestore (solo para administrador)
+    async function migrateCSVToFirestore() {
+        if (!isAdmin) {
+            alert('Necesitas ser administrador para migrar datos.');
+            return;
+        }
+        
+        try {
+            // Obtener datos del CSV
+            const response = await fetch('movies.csv');
+            const csvText = await response.text();
+            const csvMovies = parseCSV(csvText);
+            
+            // Contador para seguimiento de migración
+            let migratedCount = 0;
+            
+            // Batch para eficiencia
+            const batch = db.batch();
+            
+            // Añadir cada película a Firestore
+            for (const movie of csvMovies) {
+                const docRef = moviesCollection.doc();
+                batch.set(docRef, {
+                    ...movie,
+                    'Fecha de Migración': getCurrentDate()
+                });
+                migratedCount++;
+            }
+            
+            // Ejecutar el batch
+            await batch.commit();
+            
+            alert(`¡Migración completada! Se han migrado ${migratedCount} registros.`);
+        } catch (error) {
+            console.error('Error en la migración:', error);
+            alert('Error al migrar los datos. Revisa la consola para más detalles.');
+        }
+    }
+    
+    // Función para parsear CSV
+    function parseCSV(text) {
+        const lines = text.split('\n');
+        const headers = lines[0].split('\t');
+        
+        return lines.slice(1).filter(line => line.trim() !== '').map(line => {
+            const values = line.split('\t');
+            const movie = {};
+            
+            headers.forEach((header, index) => {
+                movie[header.trim()] = values[index] ? values[index].trim() : '';
+            });
+            
+            return movie;
+        });
+    }
+    
+    // Añadir botón para migración CSV (solo visible para administradores)
+    if (isAdmin) {
+        const adminControls = document.querySelector('.admin-controls');
+        
+        const migrateBtn = document.createElement('button');
+        migrateBtn.className = 'admin-button migrate-btn';
+        migrateBtn.title = 'Migrar CSV a Firestore';
+        migrateBtn.innerHTML = '<i class="fas fa-database"></i>';
+        
+        migrateBtn.addEventListener('click', migrateCSVToFirestore);
+        
+        adminControls.appendChild(migrateBtn);
+    }
+
+    // Función para limpiar recursos al salir de la página
+    window.addEventListener('beforeunload', () => {
+        // Cancelar suscripciones para evitar fugas de memoria y reducir operaciones innecesarias
+        if (firestoreUnsubscribe) {
+            firestoreUnsubscribe();
+        }
+    });
 });
