@@ -521,7 +521,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }, {});
             
             // Actualizar timestamp de rate limit antes de crear película
-            await updateLastWrite();
+            try {
+                await updateLastWrite();
+            } catch (error) {
+                console.error("Error en actualización de rate limit:", error);
+                alert(`Error en el límite de tasa: ${error.message}`);
+                return;
+            }
+            
             await moviesCollection.add(validatedMovie);
             addModal.style.display = 'none';
             document.body.classList.remove('modal-open');
@@ -529,7 +536,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // La UI se actualizará automáticamente gracias al listener onSnapshot
         } catch (error) {
             console.error('Error adding movie:', error);
-            alert('Error al añadir el contenido. Inténtalo de nuevo.');
+            alert(`Error al añadir el contenido: ${error.message}`);
         }
     }
 
@@ -552,7 +559,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (Object.keys(updates).length > 0) {
                 // Actualizar timestamp de rate limit antes de modificar película
-                await updateLastWrite();
+                try {
+                    await updateLastWrite();
+                } catch (error) {
+                    console.error("Error en actualización de rate limit:", error);
+                    alert(`Error en el límite de tasa: ${error.message}`);
+                    return Promise.reject(error);
+                }
+                
                 await movieRef.update(updates);
                 alert('Contenido actualizado correctamente.');
             } else {
@@ -560,6 +574,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('Error in updateMovieInFirestore:', error);
+            alert(`Error al actualizar: ${error.code} - ${error.message}`);
             return Promise.reject(error);
         }
     }
@@ -650,7 +665,12 @@ document.addEventListener('DOMContentLoaded', function() {
 const rateLimitDoc = db.collection('metrics').doc('rateLimit');
 
 async function updateLastWrite() {
-    return rateLimitDoc.set({
-        lastWrite: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    try {
+        return await rateLimitDoc.set({
+            lastWrite: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    } catch (error) {
+        console.error("Error actualizando lastWrite:", error);
+        return Promise.reject(error);
+    }
 }
