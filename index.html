@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FriendFlixDB - Lista Colaborativa</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>FriendFlixDB</h1>
+            <p>Lista colaborativa para nuestro servidor Plex</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="search" placeholder="Buscar...">
+                <i class="fas fa-search"></i>
+            </div>
+            <button id="add-btn" class="add-button">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+
+        <div class="table-container">
+            <table id="movies-table">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Subiendo al Servidor</th>
+                        <th>En Servidor</th>
+                        <th>Petición de</th>
+                        <th>Comentarios</th>
+                        <th>Es Serie</th>
+                        <th>Temporadas</th>
+                        <th>Año de Lanzamiento</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="movies-list">
+                    <!-- La lista de películas se cargará aquí mediante JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Modal para añadir nueva película/serie -->
+    <div id="add-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Añadir Nuevo Contenido</h2>
+            <form id="add-form">
+                <div class="form-group">
+                    <label for="title">Título:</label>
+                    <input type="text" id="title" required>
+                </div>
+                <div class="form-group">
+                    <label for="uploading">Subiendo al Servidor:</label>
+                    <select id="uploading">
+                        <option value="No">No</option>
+                        <option value="Sí">Sí</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="on-server">En Servidor:</label>
+                    <select id="on-server">
+                        <option value="No">No</option>
+                        <option value="Sí">Sí</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="requested-by">Petición de:</label>
+                    <input type="text" id="requested-by" required>
+                </div>
+                <div class="form-group">
+                    <label for="comments">Comentarios:</label>
+                    <textarea id="comments"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="is-series">Es Serie:</label>
+                    <select id="is-series">
+                        <option value="No">No</option>
+                        <option value="Sí">Sí</option>
+                    </select>
+                </div>
+                <div class="form-group" id="seasons-group">
+                    <label for="seasons">Temporadas:</label>
+                    <input type="number" id="seasons" min="1" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="release-year">Año de Lanzamiento:</label>
+                    <input type="number" id="release-year" min="1900" max="2099" required>
+                </div>
+                <button type="submit" class="submit-btn">Añadir</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para editar película/serie -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Editar Contenido</h2>
+            <form id="edit-form">
+                <div class="form-group">
+                    <label for="edit-title">Título:</label>
+                    <input type="text" id="edit-title" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-uploading">Subiendo al Servidor:</label>
+                    <select id="edit-uploading">
+                        <option value="No">No</option>
+                        <option value="Sí">Sí</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-on-server">En Servidor:</label>
+                    <select id="edit-on-server">
+                        <option value="No">No</option>
+                        <option value="Sí">Sí</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-requested-by">Petición de:</label>
+                    <input type="text" id="edit-requested-by" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-comments">Comentarios:</label>
+                    <textarea id="edit-comments"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="edit-is-series">Es Serie:</label>
+                    <select id="edit-is-series">
+                        <option value="No">No</option>
+                        <option value="Sí">Sí</option>
+                    </select>
+                </div>
+                <div class="form-group" id="edit-seasons-group">
+                    <label for="edit-seasons">Temporadas:</label>
+                    <input type="number" id="edit-seasons" min="1" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="edit-release-year">Año de Lanzamiento:</label>
+                    <input type="number" id="edit-release-year" min="1900" max="2099" required>
+                </div>
+                <button type="submit" class="submit-btn">Guardar Cambios</button>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2023 FriendFlixDB</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

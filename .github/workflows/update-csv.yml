@@ -1,0 +1,40 @@
+name: Update Movies CSV
+
+on:
+  repository_dispatch:
+    types: [update-movies-csv]
+
+jobs:
+  update-csv:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+      
+      - name: Update CSV file
+        run: |
+          # This would be a script to add the new entry to the CSV
+          # For now, this is just a placeholder
+          echo "Updating movies.csv with new entry"
+          # Example: node update-csv.js ${{ github.event.client_payload.movieData }}
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v3
+        with:
+          commit-message: 'Add new movie/series to the list'
+          title: 'Add: ${{ github.event.client_payload.title }}'
+          body: |
+            This PR adds a new entry to the movies list:
+            
+            - **Título**: ${{ github.event.client_payload.title }}
+            - **Petición de**: ${{ github.event.client_payload.requestedBy }}
+            
+            Automated PR created by FriendFlixDB
+          branch: add-movie-${{ github.run_number }}
+          base: main
