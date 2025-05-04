@@ -170,7 +170,7 @@ tr:hover {
     padding: 20px;
     width: 80%;
     max-width: 600px;
-    max-height: 85vh; /* Aumentado para más espacio de visualización */
+    max-height: 120vh; /* Aumentado para más espacio de visualización */
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     position: relative;
