@@ -39,6 +39,7 @@
                         <th>Subiendo al Servidor</th>
                         <th>En Servidor</th>
                         <th>Petición de</th>
+                        <th>Fecha de Petición</th>
                         <th>Comentarios</th>
                         <th>Es Serie</th>
                         <th>Temporadas</th>
@@ -47,7 +48,7 @@
                     </tr>
                 </thead>
                 <tbody id="movies-list">
-                    <!-- La lista de películas se cargará aquí mediante JavaScript -->
+                    <!-- La lista de peticiones se cargará aquí mediante JavaScript -->
                 </tbody>
             </table>
         </div>
@@ -57,7 +58,7 @@
     <div id="add-modal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h2>Añadir Nuevo Contenido</h2>
+            <h2>Nueva Petición de Contenido</h2>
             <form id="add-form">
                 <div class="form-group">
                     <label for="title">Título:</label>
@@ -81,6 +82,11 @@
                     <label for="requested-by">Petición de:</label>
                     <input type="text" id="requested-by" required>
                 </div>
+                <!-- Campo fecha de petición (oculto) -->
+                <div class="form-group" style="display: none;">
+                    <label for="request-date">Fecha de Petición:</label>
+                    <input type="text" id="request-date" readonly>
+                </div>
                 <div class="form-group">
                     <label for="comments">Comentarios:</label>
                     <textarea id="comments"></textarea>
@@ -100,7 +106,7 @@
                     <label for="release-year">Año de Lanzamiento:</label>
                     <input type="number" id="release-year" min="1900" max="2099" required>
                 </div>
-                <button type="submit" class="submit-btn">Añadir</button>
+                <button type="submit" class="submit-btn">Enviar Petición</button>
             </form>
         </div>
     </div>
@@ -109,7 +115,7 @@
     <div id="edit-modal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <h2>Editar Contenido</h2>
+            <h2>Editar Petición</h2>
             <form id="edit-form">
                 <div class="form-group">
                     <label for="edit-title">Título:</label>
@@ -132,6 +138,11 @@
                 <div class="form-group">
                     <label for="edit-requested-by">Petición de:</label>
                     <input type="text" id="edit-requested-by" required>
+                </div>
+                <!-- Campo fecha de petición (solo lectura) -->
+                <div class="form-group">
+                    <label for="edit-request-date">Fecha de Petición:</label>
+                    <input type="text" id="edit-request-date" readonly>
                 </div>
                 <div class="form-group">
                     <label for="edit-comments">Comentarios:</label>

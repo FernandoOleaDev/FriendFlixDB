@@ -91,17 +91,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Función para convertir una fecha en formato DD/MM/YYYY a un objeto Date para comparar
+    function convertToDate(dateString) {
+        if (!dateString) return new Date(0); // Si no hay fecha, asignar fecha muy antigua
+        
+        const parts = dateString.split('/');
+        if (parts.length !== 3) return new Date(0);
+        
+        // Formato de fecha español DD/MM/YYYY
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+    }
+
     function displayMovies(movies) {
         moviesList.innerHTML = '';
         
         if (movies.length === 0) {
             const emptyRow = document.createElement('tr');
-            emptyRow.innerHTML = '<td colspan="9" class="empty-message">No hay contenido disponible</td>';
+            emptyRow.innerHTML = '<td colspan="10" class="empty-message">No hay peticiones disponibles</td>';
             moviesList.appendChild(emptyRow);
             return;
         }
         
-        movies.forEach((movie, index) => {
+        // Ordenar las películas por fecha de petición (más recientes primero)
+        const sortedMovies = [...movies].sort((a, b) => {
+            const dateA = convertToDate(a['Fecha de Petición']);
+            const dateB = convertToDate(b['Fecha de Petición']);
+            return dateB - dateA; // Orden descendente (más reciente primero)
+        });
+        
+        sortedMovies.forEach((movie, index) => {
             const row = document.createElement('tr');
             row.dataset.index = index;
             
@@ -110,6 +128,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${movie['Subiendo al Servidor'] || 'No'}</td>
                 <td>${movie['En Servidor'] || 'No'}</td>
                 <td>${movie['Petición de'] || ''}</td>
+                <td>${movie['Fecha de Petición'] || ''}</td>
                 <td>${movie.Comentarios || ''}</td>
                 <td>${movie['Es Serie'] || 'No'}</td>
                 <td>${movie.Temporadas || ''}</td>
@@ -141,6 +160,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('edit-uploading').value = movie['Subiendo al Servidor'] || 'No';
         document.getElementById('edit-on-server').value = movie['En Servidor'] || 'No';
         document.getElementById('edit-requested-by').value = movie['Petición de'] || '';
+        document.getElementById('edit-request-date').value = movie['Fecha de Petición'] || '';
         document.getElementById('edit-comments').value = movie.Comentarios || '';
         document.getElementById('edit-is-series').value = movie['Es Serie'] || 'No';
         
@@ -166,16 +186,17 @@ document.addEventListener('DOMContentLoaded', function() {
         rows.forEach(row => {
             if (!row.querySelector('.empty-message')) {
                 const cells = row.querySelectorAll('td');
-                if (cells.length >= 8) {
+                if (cells.length >= 9) {
                     const movie = {
                         'Título': cells[0].textContent,
                         'Subiendo al Servidor': cells[1].textContent,
                         'En Servidor': cells[2].textContent,
                         'Petición de': cells[3].textContent,
-                        'Comentarios': cells[4].textContent,
-                        'Es Serie': cells[5].textContent,
-                        'Temporadas': cells[6].textContent,
-                        'Año de Lanzamiento': cells[7].textContent
+                        'Fecha de Petición': cells[4].textContent,
+                        'Comentarios': cells[5].textContent,
+                        'Es Serie': cells[6].textContent,
+                        'Temporadas': cells[7].textContent,
+                        'Año de Lanzamiento': cells[8].textContent
                     };
                     movies.push(movie);
                 }
@@ -195,6 +216,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'Subiendo al Servidor': document.getElementById('edit-uploading').value,
             'En Servidor': document.getElementById('edit-on-server').value,
             'Petición de': document.getElementById('edit-requested-by').value,
+            'Fecha de Petición': document.getElementById('edit-request-date').value,
             'Comentarios': document.getElementById('edit-comments').value,
             'Es Serie': document.getElementById('edit-is-series').value,
             'Temporadas': document.getElementById('edit-is-series').value === 'Sí' ? document.getElementById('edit-seasons').value : '',
@@ -226,14 +248,27 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Función para obtener la fecha actual en formato legible
+    function getCurrentDate() {
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = now.getFullYear();
+        return `${day}/${month}/${year}`;
+    }
+
     async function handleFormSubmit(e) {
         e.preventDefault();
+        
+        // Agregar la fecha currentDate automaticamente
+        const currentDate = getCurrentDate();
         
         const newMovie = {
             'Título': document.getElementById('title').value,
             'Subiendo al Servidor': document.getElementById('uploading').value,
             'En Servidor': document.getElementById('on-server').value,
             'Petición de': document.getElementById('requested-by').value,
+            'Fecha de Petición': currentDate,
             'Comentarios': document.getElementById('comments').value,
             'Es Serie': document.getElementById('is-series').value,
             'Temporadas': document.getElementById('is-series').value === 'Sí' ? document.getElementById('seasons').value : '',
