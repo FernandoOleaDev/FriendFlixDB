@@ -513,15 +513,15 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         try {
-            // Asegurarse de que los campos son válidos para evitar escrituras innecesarias
             const validatedMovie = Object.entries(newMovie).reduce((acc, [key, value]) => {
-                // Eliminar propiedades vacías o nulas para ahorrar espacio y operaciones
                 if (value !== null && value !== undefined && value !== '') {
                     acc[key] = value;
                 }
                 return acc;
             }, {});
             
+            // Actualizar timestamp de rate limit antes de crear película
+            await updateLastWrite();
             await moviesCollection.add(validatedMovie);
             addModal.style.display = 'none';
             document.body.classList.remove('modal-open');
@@ -536,25 +536,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // Función para actualizar una película en Firestore de manera eficiente
     async function updateMovieInFirestore(movieId, movie) {
         try {
-            // Sólo actualizar los campos que realmente cambiaron
             const movieRef = moviesCollection.doc(movieId);
             const doc = await movieRef.get();
             const currentData = doc.data();
-            
-            // Identificar solo los campos que cambiaron
+
             const updates = {};
             for (const [key, value] of Object.entries(movie)) {
                 if (currentData[key] !== value && value !== null && value !== undefined) {
                     updates[key] = value;
                 }
             }
-            
-            // Añadir campos de auditoría
+
             updates['Última Actualización'] = getCurrentDate();
             updates['Actualizado Por'] = isAdmin ? 'Admin' : 'Usuario';
-            
-            // Solo actualizar si hay cambios
+
             if (Object.keys(updates).length > 0) {
+                // Actualizar timestamp de rate limit antes de modificar película
+                await updateLastWrite();
                 await movieRef.update(updates);
                 alert('Contenido actualizado correctamente.');
             } else {
@@ -648,3 +646,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+const rateLimitDoc = db.collection('metrics').doc('rateLimit');
+
+async function updateLastWrite() {
+    return rateLimitDoc.set({
+        lastWrite: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+}
