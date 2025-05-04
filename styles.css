@@ -170,15 +170,22 @@ tr:hover {
     padding: 20px;
     width: 80%;
     max-width: 600px;
-    max-height: 80vh; /* Reducido de 90vh para dar más espacio al scroll */
+    max-height: 85vh; /* Aumentado para más espacio de visualización */
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     position: relative;
     overflow-y: auto; /* Permite desplazamiento dentro del modal */
-    padding-bottom: 40px; /* Más espacio en la parte inferior */
+    display: flex;
+    flex-direction: column;
 }
 
 /* Espacio adicional después del último form-group para mejor scroll */
+.modal-content form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
 .modal-content form .form-group:last-of-type {
     margin-bottom: 30px;
 }
@@ -224,6 +231,11 @@ tr:hover {
     cursor: pointer;
     font-size: 16px;
     transition: all 0.3s ease;
+    position: sticky;
+    bottom: 10px;
+    align-self: flex-end;
+    margin-top: 20px;
+    z-index: 10;
 }
 
 .submit-btn:hover {
