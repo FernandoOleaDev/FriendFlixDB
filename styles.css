@@ -39,10 +39,11 @@ header {
 }
 
 .logo {
-    width: 60px;
-    height: 60px;
-    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
     object-fit: cover;
+    flex-shrink: 0; /* Evita que el logo se reduzca */
 }
 
 .header-text {
@@ -160,17 +161,20 @@ tr:hover {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.7);
     z-index: 1000;
+    overflow-y: auto; /* Permite desplazamiento vertical */
 }
 
 .modal-content {
     background-color: var(--card-background);
-    margin: 5% auto;
+    margin: 4% auto;
     padding: 20px;
     width: 80%;
     max-width: 600px;
+    max-height: 90vh; /* Altura máxima relativa a la ventana */
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     position: relative;
+    overflow-y: auto; /* Permite desplazamiento dentro del modal */
 }
 
 .close {
