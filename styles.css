@@ -231,8 +231,18 @@ tr:hover {
 footer {
     background-color: var(--secondary-color);
     padding: 15px 0;
-    text-align: center;
     margin-top: 30px;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.version {
+    color: #888;
+    font-size: 0.9em;
 }
 
 /* Responsive adjustments */
