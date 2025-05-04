@@ -151,6 +151,25 @@ tr:hover {
     color: var(--primary-color);
 }
 
+/* Admin button styles */
+.admin-button {
+    background-color: transparent;
+    color: #777;
+    border: none;
+    cursor: pointer;
+    transition: color 0.3s ease;
+    font-size: 16px;
+    padding: 5px;
+}
+
+.admin-button:hover {
+    color: var(--primary-color);
+}
+
+.admin-active {
+    color: var(--primary-color);
+}
+
 /* Modal styles */
 .modal {
     display: none;
@@ -266,6 +285,41 @@ footer {
 /* Clase para cuando un modal está abierto */
 body.modal-open {
     overflow: hidden; /* Impide el scroll en el body */
+}
+
+/* Estilos para la notificación de cambios pendientes */
+.pending-notification {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.pending-notification p {
+    margin: 0;
+    font-weight: bold;
+}
+
+.pending-notification button {
+    background-color: white;
+    color: var(--primary-color);
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.pending-notification button:hover {
+    background-color: #f0f0f0;
+    transform: scale(1.05);
 }
 
 /* Responsive adjustments */

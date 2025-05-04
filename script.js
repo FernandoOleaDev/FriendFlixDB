@@ -11,9 +11,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const editModal = document.getElementById('edit-modal');
     const editForm = document.getElementById('edit-form');
     const editCloseBtn = document.querySelector('#edit-modal .close');
+    const adminBtn = document.getElementById('admin-mode-btn');
+    const adminModal = document.getElementById('admin-modal');
+    const adminForm = document.getElementById('admin-form');
+    const adminCloseBtn = document.querySelector('#admin-modal .close');
+    
+    // Contraseña de admin (debería ser más segura en un entorno real)
+    const ADMIN_PASSWORD = "friendflix123";
     
     // Track the current row being edited
     let currentEditRow = null;
+    // Variable para almacenar todas las películas
+    let allMovies = [];
+
+    // Comprobar si el usuario ya está en modo admin
+    checkAdminStatus();
 
     // Load movies data from CSV
     fetchMoviesData();
@@ -21,27 +33,43 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners
     addBtn.addEventListener('click', () => {
         addModal.style.display = 'block';
-        document.body.classList.add('modal-open'); // Añadir clase para bloquear scroll
+        document.body.classList.add('modal-open');
     });
 
     closeBtn.addEventListener('click', () => {
         addModal.style.display = 'none';
-        document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
+        document.body.classList.remove('modal-open');
     });
 
     editCloseBtn.addEventListener('click', () => {
         editModal.style.display = 'none';
-        document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
+        document.body.classList.remove('modal-open');
     });
+
+    adminCloseBtn.addEventListener('click', () => {
+        adminModal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    });
+
+    adminBtn.addEventListener('click', () => {
+        adminModal.style.display = 'block';
+        document.body.classList.add('modal-open');
+    });
+
+    adminForm.addEventListener('submit', handleAdminLogin);
 
     window.addEventListener('click', (e) => {
         if (e.target === addModal) {
             addModal.style.display = 'none';
-            document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
+            document.body.classList.remove('modal-open');
         }
         if (e.target === editModal) {
             editModal.style.display = 'none';
-            document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
+            document.body.classList.remove('modal-open');
+        }
+        if (e.target === adminModal) {
+            adminModal.style.display = 'none';
+            document.body.classList.remove('modal-open');
         }
     });
 
@@ -67,13 +95,77 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Admin functionality
+    function handleAdminLogin(e) {
+        e.preventDefault();
+        const password = document.getElementById('admin-password').value;
+        
+        if (password === ADMIN_PASSWORD) {
+            // Guardar estado de admin en localStorage
+            localStorage.setItem('isAdmin', 'true');
+            // Actualizar UI
+            adminBtn.classList.add('admin-active');
+            adminModal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            
+            // Mostrar notificación si hay cambios pendientes
+            const pendingMovies = JSON.parse(localStorage.getItem('pendingMovies') || '[]');
+            if (pendingMovies.length > 0) {
+                createPendingChangesNotification(pendingMovies.length);
+            }
+            
+            alert('¡Modo administrador activado!');
+        } else {
+            alert('Contraseña incorrecta');
+        }
+    }
+
+    function checkAdminStatus() {
+        const isAdmin = localStorage.getItem('isAdmin') === 'true';
+        if (isAdmin) {
+            adminBtn.classList.add('admin-active');
+        }
+    }
+
     // Functions
     async function fetchMoviesData() {
         try {
+            // Primero intentar cargar desde localStorage
+            const storedMovies = localStorage.getItem('pendingMovies');
+            const localMovies = storedMovies ? JSON.parse(storedMovies) : [];
+            
+            // Luego cargar desde CSV
             const response = await fetch('movies.csv');
             const csvText = await response.text();
-            const movies = parseCSV(csvText);
-            displayMovies(movies);
+            const csvMovies = parseCSV(csvText);
+            
+            // Combinar ambas fuentes, dando prioridad a las pendientes
+            allMovies = [...csvMovies];
+            
+            // Añadir películas pendientes o actualizadas
+            localMovies.forEach(pendingMovie => {
+                if (pendingMovie.action === 'add') {
+                    allMovies.push(pendingMovie.data);
+                } else if (pendingMovie.action === 'update') {
+                    // Buscar por título y fecha de petición (identificadores únicos)
+                    const index = allMovies.findIndex(m => 
+                        m.Título === pendingMovie.originalData.Título && 
+                        m['Fecha de Petición'] === pendingMovie.originalData['Fecha de Petición']);
+                    
+                    if (index !== -1) {
+                        allMovies[index] = pendingMovie.data;
+                    }
+                }
+            });
+            
+            displayMovies(allMovies);
+            
+            // Mostrar notificación SOLO para el administrador si hay cambios pendientes
+            // Comprobamos si el usuario actual es administrador mediante localStorage
+            const isAdmin = localStorage.getItem('isAdmin') === 'true';
+            if (isAdmin && localMovies.length > 0) {
+                createPendingChangesNotification(localMovies.length);
+            }
         } catch (error) {
             console.error('Error fetching movies data:', error);
             displayError('No se pudo cargar la lista. Intenta más tarde.');
@@ -285,7 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             await addMovieToCSV(newMovie);
             addModal.style.display = 'none';
-            document.body.classList.remove('modal-open'); // Remover clase para permitir scroll
+            document.body.classList.remove('modal-open');
             addForm.reset();
             fetchMoviesData(); // Refresh the list
         } catch (error) {
@@ -296,20 +388,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function addMovieToCSV(movie) {
         try {
-            // In a real implementation, this would send data to a server endpoint
-            // which would handle the GitHub operations
-            // For now, we simulate a successful addition
-            console.log('Adding movie:', movie);
+            // Obtener películas pendientes del localStorage
+            const pendingMovies = JSON.parse(localStorage.getItem('pendingMovies') || '[]');
             
-            // In a real implementation, we would:
-            // 1. Fetch the current CSV
-            // 2. Add the new entry
-            // 3. Create a PR via GitHub API
+            // Añadir la nueva película a la lista de pendientes
+            pendingMovies.push({
+                action: 'add',
+                data: movie,
+                timestamp: Date.now()
+            });
             
-            // For demonstration, we'll show an alert of success
-            alert('Contenido añadido correctamente. El servidor procesará la solicitud.');
+            // Guardar en localStorage
+            localStorage.setItem('pendingMovies', JSON.stringify(pendingMovies));
             
-            // This is a placeholder for the actual implementation
+            // Mostrar mensaje de éxito simplificado (para usuarios normales)
+            alert('Contenido añadido correctamente. ¡Gracias por tu petición!');
+            
             return Promise.resolve();
         } catch (error) {
             console.error('Error in addMovieToCSV:', error);
@@ -317,18 +411,102 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Función para crear notificación de cambios pendientes (solo para admin)
+    function createPendingChangesNotification(count) {
+        // Eliminar notificación existente si hay
+        const existingNotification = document.querySelector('.pending-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+        
+        // Crear nueva notificación
+        const notification = document.createElement('div');
+        notification.className = 'pending-notification';
+        notification.innerHTML = `
+            <p>Tienes ${count} cambios pendientes de subir al repositorio</p>
+            <button id="submit-changes-btn">Exportar cambios</button>
+            <button id="clear-changes-btn">Descartar cambios</button>
+        `;
+        
+        // Insertar después del header
+        const header = document.querySelector('header');
+        header.parentNode.insertBefore(notification, header.nextSibling);
+        
+        // Añadir eventos a los botones
+        document.getElementById('submit-changes-btn').addEventListener('click', exportChanges);
+        document.getElementById('clear-changes-btn').addEventListener('click', clearPendingChanges);
+    }
+
+    // Función para exportar los cambios (para el administrador)
+    function exportChanges() {
+        const pendingMovies = JSON.parse(localStorage.getItem('pendingMovies') || '[]');
+        
+        if (pendingMovies.length === 0) {
+            alert('No hay cambios pendientes para exportar.');
+            return;
+        }
+        
+        // Crear un archivo JSON para descargar
+        const dataStr = JSON.stringify(pendingMovies, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const exportFileDefaultName = `cambios_pendientes_${new Date().toISOString().slice(0,10)}.json`;
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+        
+        // Mostrar instrucciones
+        const instructions = `
+El archivo ${exportFileDefaultName} se ha descargado con éxito.
+
+Para procesar estos cambios en el repositorio:
+
+1. Crea un nuevo archivo llamado 'update-movies.js' en la raíz del repositorio.
+2. Abre una terminal en la ubicación del repositorio.
+3. Ejecuta: node update-csv.js ${exportFileDefaultName}
+4. Verifica que el archivo movies.csv se haya actualizado.
+5. Realiza un commit y un push con los cambios.
+        `;
+        
+        alert(instructions);
+        
+        if (confirm('¿Quieres eliminar los cambios pendientes después de exportarlos?')) {
+            localStorage.removeItem('pendingMovies');
+            location.reload(); // Recargar la página para actualizar la vista
+        }
+    }
+
+    // Función para descartar los cambios pendientes
+    function clearPendingChanges() {
+        if (confirm('¿Estás seguro de que quieres descartar todos los cambios pendientes? Esta acción no se puede deshacer.')) {
+            localStorage.removeItem('pendingMovies');
+            location.reload(); // Recargar la página para actualizar la vista
+        }
+    }
+
     async function updateMovieInCSV(movie, index) {
         try {
-            // Similar to addMovieToCSV, but for updating
-            console.log('Updating movie at index', index, 'with data:', movie);
+            // Obtener la película original
+            const originalMovie = allMovies[index];
             
-            // In a real implementation, we would:
-            // 1. Fetch the current CSV
-            // 2. Update the entry at the specified index
-            // 3. Create a PR via GitHub API
+            // Obtener películas pendientes del localStorage
+            const pendingMovies = JSON.parse(localStorage.getItem('pendingMovies') || '[]');
             
-            // For demonstration, we'll show an alert of success
-            alert('Contenido actualizado correctamente. El servidor procesará la solicitud.');
+            // Añadir la actualización a la lista de pendientes
+            pendingMovies.push({
+                action: 'update',
+                data: movie,
+                originalData: originalMovie,
+                timestamp: Date.now()
+            });
+            
+            // Guardar en localStorage
+            localStorage.setItem('pendingMovies', JSON.stringify(pendingMovies));
+            
+            // Mostrar mensaje de éxito simplificado (para usuarios normales)
+            alert('Contenido actualizado correctamente. ¡Gracias por tu contribución!');
             
             return Promise.resolve();
         } catch (error) {

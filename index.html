@@ -16,6 +16,12 @@
                     <h1>FriendFlixDB</h1>
                     <p>Lista colaborativa para nuestro servidor Plex</p>
                 </div>
+                <!-- Añadir botón de administrador discreto -->
+                <div class="admin-controls">
+                    <button id="admin-mode-btn" class="admin-button" title="Modo Admin">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </header>
@@ -168,11 +174,26 @@
         </div>
     </div>
 
+    <!-- Modal para Login Admin -->
+    <div id="admin-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Modo Administrador</h2>
+            <form id="admin-form">
+                <div class="form-group">
+                    <label for="admin-password">Contraseña:</label>
+                    <input type="password" id="admin-password" required>
+                </div>
+                <button type="submit" class="submit-btn">Acceder</button>
+            </form>
+        </div>
+    </div>
+
     <footer>
         <div class="container">
             <div class="footer-content">
                 <p>&copy; 2025 FriendFlixDB</p>
-                <p class="version">v1.2.3</p>
+                <p class="version">v1.3.1</p>
             </div>
         </div>
     </footer>

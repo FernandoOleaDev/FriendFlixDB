@@ -3,6 +3,10 @@ name: Update Movies CSV
 on:
   repository_dispatch:
     types: [update-movies-csv]
+  pull_request:
+    types: [opened]
+    paths:
+      - '.github/PULL_REQUEST_TEMPLATE/update_movies.md'
 
 jobs:
   update-csv:
@@ -19,22 +23,35 @@ jobs:
       
       - name: Update CSV file
         run: |
-          # This would be a script to add the new entry to the CSV
-          # For now, this is just a placeholder
-          echo "Updating movies.csv with new entry"
-          # Example: node update-csv.js ${{ github.event.client_payload.movieData }}
+          # Determinar la fuente de datos
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            echo "Procesando evento repository_dispatch"
+            node update-csv.js
+          else
+            echo "Procesando Pull Request"
+            # Extraer los datos JSON del PR
+            PR_BODY="${{ github.event.pull_request.body }}"
+            JSON_DATA=$(echo "$PR_BODY" | grep -oP '```json\K(.*?)(?=```)' | tr -d '\n')
+            
+            if [ -z "$JSON_DATA" ]; then
+              echo "No se encontraron datos JSON en el PR"
+              exit 1
+            fi
+            
+            # Guardar los datos en un archivo temporal y procesarlos
+            echo "$JSON_DATA" > /tmp/pr_data.json
+            export GITHUB_EVENT_PATH=/tmp/pr_data.json
+            node update-csv.js
+          fi
       
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
         with:
-          commit-message: 'Add new movie/series to the list'
-          title: 'Add: ${{ github.event.client_payload.title }}'
+          commit-message: 'Actualizar lista de películas/series'
+          title: 'Actualizar: Lista de contenido'
           body: |
-            This PR adds a new entry to the movies list:
+            Este PR actualiza el archivo CSV con nuevas películas y series.
             
-            - **Título**: ${{ github.event.client_payload.title }}
-            - **Petición de**: ${{ github.event.client_payload.requestedBy }}
-            
-            Automated PR created by FriendFlixDB
-          branch: add-movie-${{ github.run_number }}
+            Cambios realizados automáticamente por GitHub Actions.
+          branch: update-movies-csv-${{ github.run_number }}
           base: main
